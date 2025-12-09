@@ -1,8 +1,7 @@
 import { GoogleGenAI, Type, HarmCategory, HarmBlockThreshold } from "@google/genai";
 import { ReportData } from "../types";
 
-// Inicializar el cliente. Usamos directamente process.env.API_KEY como indican las guías
-// Nota: process.env.API_KEY es reemplazado por Vite durante el build (ver vite.config.ts)
+// Inicializar el cliente.
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const SYSTEM_INSTRUCTION = `
@@ -24,16 +23,12 @@ INSTRUCCIONES ESPECÍFICAS:
    - Evaluación (Tiempo, Dominio, Actitud).
 8. **Firmas**: Intenta leer el nombre en 'Recepción' y 'Técnicos'.
 
-**DICCIONARIO TÉCNICO Y VOCABULARIO FRECUENTE**:
-Utiliza la siguiente lista de palabras clave para interpretar textos manuscritos difusos. Si encuentras un texto ambiguo que se asemeja a una de estas palabras, prioriza estas opciones:
-
-- **Hardware y Dispositivos**: culcas, expansoras, conexiones, dispositivo, prowatch, transfer, esclusa, sensor, cámaras, cableado, panel, batería, tren, cajas, resistencia, RCC, CIISS, MC, BA, IR, respaldo.
-- **Acciones y Verbos**: falla, comunicación, operación, remplazo, restableciendo, restablecimiento, revisa, revisión, instala, instalación, acude, encuentra, validar, validando, procede, ayuda, pruebas, función.
-- **Materiales y Entorno**: estaño, estañado, asalto, señal, patio, incendio, gerente, soldadura.
-- **Específicos**: MR-14, COMEXA, SIRH.
+**DICCIONARIO TÉCNICO**:
+Hardware: culcas, expansoras, conexiones, prowatch, transfer, esclusa, sensor, cámaras, cableado, panel, batería, tren, cajas, resistencia, RCC, CIISS, MC, BA, IR, respaldo.
+Verbos: falla, comunicación, operación, remplazo, restableciendo, revisa, instala, acude, encuentra, validar, procede, ayuda, pruebas.
 
 Si un campo está vacío o ilegible, déjalo como cadena vacía.
-Evalúa la legibilidad del 1 al 10.
+Evalúa la legibilidad del 1 al 10 en 'confidenceScore'.
 `;
 
 const reportSchema = {
@@ -41,35 +36,28 @@ const reportSchema = {
   properties: {
     inmueble: { type: Type.STRING, description: "Nombre del inmueble" },
     sirh: { type: Type.STRING, description: "Sede / Zona / SIRH" },
-    atencion: { type: Type.STRING, description: "Nombre del cliente en campo ATENCIÓN (ej. Banamex)" },
+    atencion: { type: Type.STRING, description: "Nombre del cliente en campo ATENCIÓN" },
     fecha: { type: Type.STRING, description: "Fecha del reporte" },
     tecnicos: { type: Type.STRING, description: "Nombres de los técnicos" },
-    reporto: { type: Type.STRING, description: "Nombre de quien reportó (Campo 'REPORTÓ')" },
+    reporto: { type: Type.STRING, description: "Nombre de quien reportó" },
     folio: { type: Type.STRING, description: "Folio de Comexa / Task / RFQ" },
     folioCliente: { type: Type.STRING, description: "Folio de Cliente" },
-    folioReporte: { type: Type.STRING, description: "Folio numérico en color rojo (esquina superior derecha)" },
-    
-    tipoMantenimiento: { type: Type.STRING, description: "Texto de casillas marcadas en Mantenimiento (Preventivo, Correctivo, etc.)" },
-    
+    folioReporte: { type: Type.STRING, description: "Folio numérico en color rojo" },
+    tipoMantenimiento: { type: Type.STRING, description: "Texto de casillas marcadas en Mantenimiento" },
     fallaReportada: { type: Type.STRING, description: "Transcripción literal de Falla Reportada" },
     condicionesEncontradas: { type: Type.STRING, description: "Transcripción literal de Condiciones" },
     trabajoRealizado: { type: Type.STRING, description: "Transcripción literal completa de Trabajo Realizado" },
     materiales: { type: Type.STRING, description: "Material o Refacciones" },
-    
     equipoInstalado: { type: Type.STRING, description: "Lista de equipos instalados con serie" },
     equipoRetirado: { type: Type.STRING, description: "Lista de equipos retirados con serie" },
-    
-    clasificacion: { type: Type.STRING, description: "Casillas marcadas en Clasificación (Electrónica, Mecánica, etc)" },
+    clasificacion: { type: Type.STRING, description: "Casillas marcadas en Clasificación" },
     estatusFinal: { type: Type.STRING, description: "Casillas marcadas en Estado Final" },
-    verificacionOperacion: { type: Type.STRING, description: "Casillas marcadas en 'Se verifica correcta operación' (Alarmas, CCTV, etc)" },
-    
+    verificacionOperacion: { type: Type.STRING, description: "Casillas marcadas en Operación" },
     recepcion: { type: Type.STRING, description: "Nombre en campo Recepción" },
     observaciones: { type: Type.STRING, description: "Observaciones y/o Comentarios" },
-    evaluacion: { type: Type.STRING, description: "Datos de evaluación (Tiempo, Dominio, Actitud)" },
-    
+    evaluacion: { type: Type.STRING, description: "Datos de evaluación" },
     horaEntrada: { type: Type.STRING, description: "Hora de entrada" },
     horaSalida: { type: Type.STRING, description: "Hora de salida" },
-    
     confidenceScore: { type: Type.INTEGER, description: "Puntaje de legibilidad 1-10" }
   },
   required: ["inmueble", "fecha", "trabajoRealizado", "confidenceScore"]
@@ -78,49 +66,107 @@ const reportSchema = {
 // Función auxiliar para esperar
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Helper para detectar si el error es de cuota
-const isQuotaError = (error: any) => {
+// Helper para detectar errores de tiempo/cuota/red
+const isTransientError = (error: any) => {
   const status = error.status || error.response?.status || error.statusCode;
   const msg = (error.message || '').toLowerCase();
-  return status === 429 || status === 503 || msg.includes('429') || msg.includes('quota') || msg.includes('resource exhausted') || msg.includes('too many requests');
+  
+  return (
+    status === 429 || 
+    status === 503 || 
+    status === 504 ||
+    msg.includes('429') || 
+    msg.includes('quota') || 
+    msg.includes('exhausted') || 
+    msg.includes('too many') || 
+    msg.includes('time') ||     // Catch "Timed out" or "Time limit"
+    msg.includes('overloaded') || // Catch "Model is overloaded"
+    msg.includes('fetch failed')
+  );
 };
 
-export async function processReportImage(base64Data: string, mimeType: string, modelName: string = 'gemini-2.5-flash'): Promise<{ data: ReportData, score: number }> {
-  // 1. Validación estricta de API Key antes de intentar nada
-  if (!process.env.API_KEY || process.env.API_KEY.includes("API_KEY")) {
-    console.error("API Key Missing or Invalid:", process.env.API_KEY);
-    throw new Error("⚠️ API Key no configurada correctamente. Asegúrate de haber agregado la variable 'API_KEY' en el panel de Vercel y REDESPLEGADO el proyecto.");
+// Helper para extraer JSON sucio
+const extractJSON = (text: string): string => {
+  let clean = text.replace(/```json/g, '').replace(/```/g, '').trim();
+  const firstBrace = clean.indexOf('{');
+  const lastBrace = clean.lastIndexOf('}');
+  if (firstBrace >= 0 && lastBrace > firstBrace) {
+    return clean.substring(firstBrace, lastBrace + 1);
+  }
+  return clean;
+};
+
+// --- NUEVA FUNCIÓN DE DIAGNÓSTICO ---
+export async function validateApiKey(): Promise<{ status: 'ok' | 'blocked' | 'quota' | 'error', message: string }> {
+  if (!process.env.API_KEY || process.env.API_KEY.length < 10) {
+    return { status: 'blocked', message: 'No se detectó ninguna API Key configurada.' };
+  }
+
+  try {
+    // Hacemos una petición mínima para probar la llave (1 token)
+    await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: { parts: [{ text: 'ping' }] },
+    });
+    return { status: 'ok', message: 'Conectado correctamente.' };
+  } catch (error: any) {
+    const msg = (error.message || '').toLowerCase();
+    const status = error.status || error.response?.status;
+
+    if (msg.includes('key') || status === 400 || status === 403) {
+      return { status: 'blocked', message: 'La API Key es inválida, ha sido revocada o el proyecto de Google Cloud está cerrado.' };
+    }
+    if (msg.includes('quota') || msg.includes('429') || status === 429) {
+      return { status: 'quota', message: 'Se ha agotado la cuota gratuita de la API.' };
+    }
+    if (msg.includes('fetch') || msg.includes('network')) {
+      return { status: 'error', message: 'Error de conexión a internet. No se pudo validar la llave.' };
+    }
+    
+    return { status: 'error', message: `Error desconocido al validar llave: ${msg}` };
+  }
+}
+
+export async function processReportImage(base64Data: string, mimeType: string, requestedModel: string = 'gemini-2.5-flash'): Promise<{ data: ReportData, score: number }> {
+  // 1. Validación estricta de API Key
+  if (!process.env.API_KEY || process.env.API_KEY.includes("API_KEY") || process.env.API_KEY.length < 5) {
+    throw new Error("⚠️ Falta API Key. Configúrala en tu entorno.");
   }
 
   const cleanBase64 = base64Data.split(',')[1] || base64Data;
-  const MAX_RETRIES = 3;
+  
+  // ESTRATEGIA DE FALLBACK AGRESIVA:
+  // Si falla el primer intento, cambiamos INMEDIATAMENTE a Flash (el más rápido y estable).
+  // Solo intentamos Pro una vez si se solicitó explícitamente.
+  let modelsToTry = [requestedModel];
+  
+  if (requestedModel !== 'gemini-2.5-flash') {
+    modelsToTry.push('gemini-2.5-flash'); // Primer fallback
+    modelsToTry.push('gemini-2.5-flash'); // Segundo fallback (reintento)
+  } else {
+    modelsToTry.push('gemini-2.5-flash'); // Reintento simple
+  }
+
   let lastError: any;
 
-  console.log(`Iniciando petición a Gemini con modelo ${modelName}...`);
-
-  // Bucle de reintentos
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+  for (let i = 0; i < modelsToTry.length; i++) {
+    const modelName = modelsToTry[i];
     try {
+      console.log(`Intento ${i + 1}/${modelsToTry.length} usando ${modelName}...`);
+      
       const response = await ai.models.generateContent({
         model: modelName,
         contents: {
           parts: [
-            {
-              inlineData: {
-                mimeType: mimeType,
-                data: cleanBase64
-              }
-            },
-            {
-              text: "Extrae todos los datos del reporte de servicio técnico MR-14 adjunto. Sé literal."
-            }
+            { inlineData: { mimeType: mimeType, data: cleanBase64 } },
+            { text: "Analiza la imagen adjunta. Extrae los datos del formulario MR-14 y devuélvelos EXCLUSIVAMENTE en formato JSON." }
           ]
         },
         config: {
           systemInstruction: SYSTEM_INSTRUCTION,
           responseMimeType: "application/json",
           responseSchema: reportSchema,
-          temperature: 0.1,
+          temperature: 0.1, 
           safetySettings: [
             { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
             { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
@@ -131,64 +177,77 @@ export async function processReportImage(base64Data: string, mimeType: string, m
       });
 
       const resultText = response.text;
-      if (!resultText) {
-        console.warn("Respuesta vacía de Gemini:", response);
-        throw new Error("La IA no devolvió texto. Posible bloqueo de seguridad o imagen ilegible.");
-      }
+      if (!resultText) throw new Error("Respuesta vacía del servidor.");
 
-      // Limpieza robusta del JSON (eliminar bloques markdown ```json ... ``` si existen)
-      const cleanJson = resultText.replace(/```json/g, '').replace(/```/g, '').trim();
-
-      let parsed;
+      const jsonStr = extractJSON(resultText);
+      let parsed: any;
+      
       try {
-        parsed = JSON.parse(cleanJson);
+        parsed = JSON.parse(jsonStr);
       } catch (e) {
-        console.error("Error de formato JSON:", cleanJson);
-        throw new Error("La respuesta de la IA no tiene un formato válido. Intenta con una imagen más clara.");
+        console.warn(`JSON corrupto con ${modelName}:`, jsonStr);
+        throw new Error("Error de formato JSON en la respuesta.");
       }
-
-      const score = parsed.confidenceScore || 5;
-      const { confidenceScore, ...dataOnly } = parsed;
 
       return {
-        data: dataOnly as ReportData,
-        score: score
+        data: parsed as ReportData,
+        score: parsed.confidenceScore || 5
       };
 
     } catch (error: any) {
+      console.warn(`Fallo con modelo ${modelName}:`, error);
       lastError = error;
-      console.warn(`Error en intento ${attempt} (${modelName}):`, error);
 
-      // Si el error es de cuota, esperamos bastante más
-      if (isQuotaError(error)) {
-        console.warn(`Cuota excedida (Intento ${attempt}). Esperando enfriamiento...`);
-        if (attempt < MAX_RETRIES) {
-           // Backoff agresivo: 5s, 10s, 15s
-           await delay(attempt * 5000); 
-           continue; 
-        }
+      // Si es un error transitorio (tiempo, red, cuota), esperamos antes de reintentar
+      if (isTransientError(error)) {
+        console.log("Detectado error de tiempo/red/cuota. Esperando 10 segundos para enfriar...");
+        // Espera larga para dar tiempo a que se recupere la cuota o el servidor
+        await delay(10000); 
+      } else {
+        // Si es otro error (ej. imagen inválida), esperamos menos
+        await delay(2000);
       }
       
-      // Si no es error de cuota o se acabaron los intentos
-      break;
+      // Continuamos al siguiente modelo en la lista...
     }
   }
 
-  // Si llegamos aquí, es que fallaron todos los intentos
-  console.error("Error final después de reintentos:", lastError);
-    
-  if (isQuotaError(lastError)) {
-    throw new Error(`⏳ Cuota excedida para ${modelName}. El sistema está saturado.`);
-  }
-  if (lastError.message?.includes("API key") || lastError.status === 403) {
-    throw new Error("⚠️ API Key inválida o no autorizada. Verifica tu configuración en Vercel.");
-  }
-  if (lastError.status === 404) {
-    throw new Error(`⚠️ Modelo ${modelName} no disponible. Verifica tu API Key o el acceso al modelo.`);
-  }
-  if (lastError.message?.includes("fetch failed") || lastError.message?.includes("NetworkError")) {
-      throw new Error("🌐 Error de red. Verifica tu conexión.");
+  // Diagnóstico final detallado para el usuario
+  const msg = (lastError.message || '').toLowerCase();
+  const status = lastError.status || lastError.response?.status || lastError.statusCode;
+  
+  let title = "Error de Procesamiento";
+  let description = "Ocurrió un error desconocido. Verifica tu imagen y conexión.";
+
+  // Clasificación de errores más específica
+  if (msg.includes("time") || msg.includes("timeout") || status === 504) {
+    title = "⏳ TIEMPO DE ESPERA AGOTADO (TIMEOUT)";
+    if (msg.includes("gateway")) description = "El servidor tardó demasiado en responder (504 Gateway Timeout).";
+    else if (msg.includes("fetch")) description = "Tu conexión a internet se interrumpió o es muy lenta.";
+    else description = "Google AI tardó demasiado procesando la imagen.";
+  } 
+  else if (msg.includes("quota") || msg.includes("429") || msg.includes("exhausted") || status === 429) {
+    title = "🛑 LÍMITE DE CUOTA EXCEDIDO (429)";
+    description = "Se ha alcanzado el límite de uso gratuito de la API de Google.";
+  } 
+  else if (msg.includes("overloaded") || status === 503) {
+    title = "🔥 SERVIDOR SOBRECARGADO (503)";
+    description = "El modelo de IA tiene demasiada demanda en este momento. Inténtalo de nuevo en unos minutos.";
+  } 
+  else if (msg.includes("api key") || status === 403) {
+    title = "🔑 API KEY INVÁLIDA (403)";
+    description = "La llave de acceso (API Key) es incorrecta, no tiene permisos o el proyecto de facturación no está vinculado.";
+  } 
+  else if (msg.includes("fetch") || msg.includes("network")) {
+    title = "🌐 ERROR DE CONEXIÓN";
+    description = "No se pudo establecer conexión con los servidores de Google. Verifica tu Wifi o Datos.";
+  } 
+  else if (msg.includes("json") || msg.includes("parse")) {
+    title = "🧩 ERROR DE LECTURA (JSON)";
+    description = "La IA no pudo estructurar los datos correctamente. Probablemente la imagen no es clara o no es un reporte válido.";
   }
 
-  throw new Error(lastError.message || "Error inesperado al procesar el reporte.");
+  // Lanzar error con formato amigable + detalle técnico
+  const technicalDetail = status ? `[Código: ${status}]` : `[${msg.slice(0, 50)}...]`;
+  throw new Error(`${title}: ${description} ${technicalDetail}`);
 }
