@@ -113,6 +113,11 @@ export async function validateApiKey(): Promise<{ status: 'ok' | 'blocked' | 'qu
     const msg = (error.message || '').toLowerCase();
     const status = error.status || error.response?.status;
 
+    // Detección específica de API deshabilitada
+    if (msg.includes('disabled') || msg.includes('enable') || msg.includes('not been used')) {
+      return { status: 'blocked', message: 'La API "Google Generative AI" no está habilitada en tu Google Cloud Console.' };
+    }
+
     if (msg.includes('key') || status === 400 || status === 403) {
       return { status: 'blocked', message: 'La API Key es inválida, ha sido revocada o el proyecto de Google Cloud está cerrado.' };
     }
@@ -234,6 +239,10 @@ export async function processReportImage(base64Data: string, mimeType: string, r
     title = "🔥 SERVIDOR SOBRECARGADO (503)";
     description = "El modelo de IA tiene demasiada demanda en este momento. Inténtalo de nuevo en unos minutos.";
   } 
+  else if (msg.includes("disabled") || msg.includes("enable")) {
+    title = "⛔ API DESHABILITADA";
+    description = "Debes ir a Google Cloud Console y habilitar la 'Google Generative AI API' para tu proyecto.";
+  }
   else if (msg.includes("api key") || status === 403) {
     title = "🔑 API KEY INVÁLIDA (403)";
     description = "La llave de acceso (API Key) es incorrecta, no tiene permisos o el proyecto de facturación no está vinculado.";

@@ -6,7 +6,7 @@ import { ReportCard } from './components/ReportCard';
 import { ExportActions } from './components/ExportActions';
 import { ImageModal } from './components/ImageModal';
 import { ProcessedReport, ReportData, INITIAL_REPORT_DATA, DEFAULT_LOGO } from './types';
-import { processReportImage, validateApiKey } from './services/geminiService';
+import { processReportImage } from './services/geminiService';
 
 interface ErrorBoundaryProps {
   children?: ReactNode;
@@ -139,14 +139,15 @@ const AppContent: React.FC = () => {
   const [keyStatus, setKeyStatus] = useState<'checking' | 'ok' | 'blocked' | 'quota' | 'error'>('checking');
   const [keyMessage, setKeyMessage] = useState('');
 
-  // Validate API Key on mount
+  // Validar API Key SOLO localmente al iniciar para no gastar cuota ni provocar 429
   useEffect(() => {
-    const checkKey = async () => {
-      const { status, message } = await validateApiKey();
-      setKeyStatus(status);
-      setKeyMessage(message);
-    };
-    checkKey();
+    if (!process.env.API_KEY || process.env.API_KEY.length < 10) {
+      setKeyStatus('blocked');
+      setKeyMessage('No se detectó ninguna API Key configurada en Vercel.');
+    } else {
+      setKeyStatus('ok');
+      setKeyMessage('Lista para procesar.');
+    }
   }, []);
 
   useEffect(() => {
