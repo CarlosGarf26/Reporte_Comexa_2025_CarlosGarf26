@@ -164,6 +164,17 @@ const AppContent: React.FC = () => {
   const [viewMode, setViewMode] = useState<'table' | 'document'>('table');
   const [activeReportId, setActiveReportId] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState("Procesando...");
+  const [selectedModel, setSelectedModel] = useState<string>('gemini-2.5-flash');
+  const [hasApiKey, setHasApiKey] = useState(true);
+
+  // Check API Key on mount
+  useEffect(() => {
+    // Check if key is empty string or undefined
+    const key = process.env.API_KEY;
+    if (!key || key.length < 10) {
+      setHasApiKey(false);
+    }
+  }, []);
 
   // Set initial active report if none selected
   useEffect(() => {
@@ -204,22 +215,11 @@ const AppContent: React.FC = () => {
     }
 
     // Process files SEQUENTIALLY to avoid Rate Limits (429)
-    // Using a for loop with await ensures we process one after another
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       const reportId = newReports[i].id;
-
-      // THROTTLE EXTREMO PARA MODO GRATUITO
-      // Si no es el primer archivo, esperamos 12 segundos.
-      // 60 segundos / 12 segundos = 5 reportes por minuto.
-      // El límite es 15, así que estamos MUY seguros (3 veces por debajo del límite).
-      if (i > 0) {
-        setStatusMessage(`Esperando turno (Plan Gratuito)... ${files.length - i} restantes`);
-        await wait(12000); 
-      }
       
       try {
-        setStatusMessage(`Analizando ${file.name}...`);
         const base64 = await fileToBase64(file);
         
         // Immediately save the image/pdf so the user can view it while processing
@@ -229,8 +229,31 @@ const AppContent: React.FC = () => {
             : r
         ));
 
+        // --- MANUAL MODE CHECK ---
+        if (selectedModel === 'manual') {
+          // If Manual Mode, skip AI and mark as completed (empty)
+          setStatusMessage(`Preparando ficha manual para ${file.name}...`);
+          await wait(500); // Small fake delay for UX
+          setReports(prev => prev.map(r => 
+            r.id === reportId 
+              ? { ...r, status: 'completed', confidenceScore: 0, data: { ...INITIAL_REPORT_DATA } } 
+              : r
+          ));
+          continue; // Skip to next iteration
+        }
+
+        // --- AI PROCESSING ---
+        // Throttling for AI models
+        const waitTime = selectedModel.includes('pro') ? 32000 : 12000;
+        if (i > 0) {
+          setStatusMessage(`Esperando turno (${selectedModel})... ${files.length - i} restantes`);
+          await wait(waitTime); 
+        }
+
+        setStatusMessage(`Analizando ${file.name} con ${selectedModel.includes('flash') ? 'Flash' : 'Pro'}...`);
+        
         // Call Service
-        const { data, score } = await processReportImage(base64, file.type);
+        const { data, score } = await processReportImage(base64, file.type, selectedModel);
         
         // Update success
         setReports(prev => prev.map(r => 
@@ -335,6 +358,18 @@ const AppContent: React.FC = () => {
         </div>
       </header>
 
+      {/* API Key Warning Banner */}
+      {!hasApiKey && (
+        <div className="bg-red-50 border-b border-red-200 p-2 text-center relative z-20">
+          <p className="text-sm text-red-700 font-medium flex items-center justify-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+              <path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003ZM12 8.25a.75.75 0 0 1 .75.75v3.75a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75Zm0 8.25a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clipRule="evenodd" />
+            </svg>
+            <span>Error Crítico: No se detectó la API KEY. La IA no funcionará. Usa el modo "Manual" o configura tu llave.</span>
+          </p>
+        </div>
+      )}
+
       {/* Main Content */}
       <main className={`flex-grow p-4 sm:p-6 lg:p-8 relative z-10 transition-all duration-300 ${viewMode === 'document' && reports.length > 0 ? 'max-w-[98%]' : 'max-w-7xl'} mx-auto w-full`}>
         <div className="space-y-6">
@@ -344,11 +379,32 @@ const AppContent: React.FC = () => {
             {/* Upload Area */}
             <div className={`${viewMode === 'document' && reports.length > 0 ? 'w-full lg:max-w-xl' : 'lg:col-span-1'} space-y-4`}>
               <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm p-4 border border-slate-100">
-                <h2 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
-                  <span className="w-1 h-4 bg-comexa-accent rounded-full"></span>
-                  Cargar Archivos
-                </h2>
+                <div className="flex justify-between items-center mb-3">
+                    <h2 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                      <span className="w-1 h-4 bg-comexa-accent rounded-full"></span>
+                      Cargar Archivos
+                    </h2>
+                    
+                    {/* Selector de Modelo IA */}
+                    <div className="flex items-center gap-2">
+                       <label htmlFor="model-select" className="text-xs text-slate-500 font-medium">Cerebro IA:</label>
+                       <select 
+                         id="model-select"
+                         value={selectedModel}
+                         onChange={(e) => setSelectedModel(e.target.value)}
+                         disabled={isProcessing}
+                         className="text-xs border border-slate-300 rounded-md py-1 px-2 bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+                       >
+                         <option value="gemini-2.5-flash">⚡ Flash (Rápido)</option>
+                         <option value="gemini-3-pro-preview">🧠 Pro (Inteligente)</option>
+                         <option value="manual">✍️ Manual (Sin IA)</option>
+                       </select>
+                    </div>
+                </div>
                 <FileUpload onFilesSelected={handleFiles} disabled={isProcessing} />
+                <p className="text-[10px] text-slate-400 mt-2 text-center">
+                   * Si la IA falla, selecciona "Manual" para capturar tú mismo.
+                </p>
               </div>
 
               {/* Stats Mini Card */}
@@ -498,12 +554,15 @@ const AppContent: React.FC = () => {
                                         </svg>
                                         <h3 className="text-red-800 font-bold mb-1">Error al procesar</h3>
                                         <p className="text-red-600 text-sm">{report.errorMsg}</p>
-                                        <button 
-                                          onClick={() => handleDeleteReport(report.id)}
-                                          className="mt-4 text-red-700 underline text-sm hover:text-red-900"
-                                        >
-                                          Eliminar
-                                        </button>
+                                        <div className="mt-4 flex justify-center gap-4">
+                                          <button 
+                                            onClick={() => handleDeleteReport(report.id)}
+                                            className="text-red-700 underline text-sm hover:text-red-900"
+                                          >
+                                            Eliminar
+                                          </button>
+                                          {/* Retry Button Logic - Not implemented fully but UI placeholder */}
+                                        </div>
                                       </div>
                                     ) : (
                                       <ReportCard

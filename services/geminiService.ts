@@ -85,7 +85,7 @@ const isQuotaError = (error: any) => {
   return status === 429 || status === 503 || msg.includes('429') || msg.includes('quota') || msg.includes('resource exhausted') || msg.includes('too many requests');
 };
 
-export async function processReportImage(base64Data: string, mimeType: string): Promise<{ data: ReportData, score: number }> {
+export async function processReportImage(base64Data: string, mimeType: string, modelName: string = 'gemini-2.5-flash'): Promise<{ data: ReportData, score: number }> {
   // 1. Validación estricta de API Key antes de intentar nada
   if (!process.env.API_KEY || process.env.API_KEY.includes("API_KEY")) {
     console.error("API Key Missing or Invalid:", process.env.API_KEY);
@@ -96,13 +96,13 @@ export async function processReportImage(base64Data: string, mimeType: string): 
   const MAX_RETRIES = 3;
   let lastError: any;
 
-  console.log("Iniciando petición a Gemini con modelo gemini-2.5-flash...");
+  console.log(`Iniciando petición a Gemini con modelo ${modelName}...`);
 
   // Bucle de reintentos
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: modelName,
         contents: {
           parts: [
             {
@@ -157,7 +157,7 @@ export async function processReportImage(base64Data: string, mimeType: string): 
 
     } catch (error: any) {
       lastError = error;
-      console.warn(`Error en intento ${attempt}:`, error);
+      console.warn(`Error en intento ${attempt} (${modelName}):`, error);
 
       // Si el error es de cuota, esperamos bastante más
       if (isQuotaError(error)) {
@@ -178,13 +178,13 @@ export async function processReportImage(base64Data: string, mimeType: string): 
   console.error("Error final después de reintentos:", lastError);
     
   if (isQuotaError(lastError)) {
-    throw new Error("⏳ Cuota excedida. El sistema está muy ocupado, intenta subir menos archivos a la vez.");
+    throw new Error(`⏳ Cuota excedida para ${modelName}. El sistema está saturado.`);
   }
   if (lastError.message?.includes("API key") || lastError.status === 403) {
     throw new Error("⚠️ API Key inválida o no autorizada. Verifica tu configuración en Vercel.");
   }
   if (lastError.status === 404) {
-    throw new Error("⚠️ Modelo no disponible. Verifica tu API Key.");
+    throw new Error(`⚠️ Modelo ${modelName} no disponible. Verifica tu API Key o el acceso al modelo.`);
   }
   if (lastError.message?.includes("fetch failed") || lastError.message?.includes("NetworkError")) {
       throw new Error("🌐 Error de red. Verifica tu conexión.");
