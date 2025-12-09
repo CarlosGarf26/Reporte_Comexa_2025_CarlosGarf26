@@ -1,4 +1,4 @@
-import React, { useState, useEffect, ErrorInfo, ReactNode } from 'react';
+import React, { useState, useEffect, ErrorInfo, ReactNode, Component } from 'react';
 import { FileUpload } from './components/FileUpload';
 import { ResultsTable } from './components/ResultsTable';
 import { MobileReportCard } from './components/MobileReportCard';
@@ -18,11 +18,14 @@ interface ErrorBoundaryState {
 }
 
 // Error Boundary Component
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
   }
+
+  // Explicitly declare state to satisfy TypeScript in strict mode
+  public state: ErrorBoundaryState;
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
@@ -156,6 +159,9 @@ const PdfViewer: React.FC<{ base64: string }> = ({ base64 }) => {
   );
 };
 
+// Helper for waiting
+const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 const AppContent: React.FC = () => {
   const [reports, setReports] = useState<ProcessedReport[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -206,6 +212,12 @@ const AppContent: React.FC = () => {
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       const reportId = newReports[i].id;
+
+      // THROTTLE: Si no es el primer archivo, esperamos 6 segundos antes de empezar el siguiente.
+      // Esto asegura que NO superemos el límite de 15 RPM (1 cada 4s) del Free Tier.
+      if (i > 0) {
+        await wait(6000); 
+      }
       
       try {
         const base64 = await fileToBase64(file);
@@ -538,7 +550,7 @@ const AppContent: React.FC = () => {
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 0 1-1.043 3.296 3.745 3.745 0 0 1-3.296 1.043A3.745 3.745 0 0 1 12 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 0 1-3.296-1.043 3.745 3.745 0 0 1-1.043-3.296A3.745 3.745 0 0 1 3 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 0 1 1.043-3.296 3.746 3.746 0 0 1 3.296-1.043A3.746 3.746 0 0 1 12 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 0 1 3.296 1.043 3.745 3.745 0 0 1 1.043-3.296 3.745 3.745 0 0 1 1.593-3.068C20.37 9.63 21.232 10.732 21 12Z" />
               </svg>
-              <span>Desarrollado con Gemini 2.5 AI</span>
+              <span>Desarrollado por Juan Carlos Garfias con Gemini 2.5 AI</span>
             </div>
             <p className="text-xs text-slate-300">© {new Date().getFullYear()} COMEXA. Uso interno exclusivo.</p>
           </div>

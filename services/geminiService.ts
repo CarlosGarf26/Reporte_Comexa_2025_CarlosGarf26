@@ -78,6 +78,13 @@ const reportSchema = {
 // Función auxiliar para esperar
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Helper para detectar si el error es de cuota
+const isQuotaError = (error: any) => {
+  const status = error.status || error.response?.status || error.statusCode;
+  const msg = (error.message || '').toLowerCase();
+  return status === 429 || status === 503 || msg.includes('429') || msg.includes('quota') || msg.includes('resource exhausted') || msg.includes('too many requests');
+};
+
 export async function processReportImage(base64Data: string, mimeType: string): Promise<{ data: ReportData, score: number }> {
   // 1. Validación estricta de API Key antes de intentar nada
   if (!process.env.API_KEY || process.env.API_KEY.includes("API_KEY")) {
@@ -150,41 +157,38 @@ export async function processReportImage(base64Data: string, mimeType: string): 
 
     } catch (error: any) {
       lastError = error;
-      
-      // Si el error es 429 (Too Many Requests) o 503 (Server Error), esperamos y reintentamos
-      if (error.status === 429 || error.status === 503) {
-        console.warn(`Intento ${attempt} fallido (${error.status}). Reintentando en ${attempt * 2}s...`);
+      console.warn(`Error en intento ${attempt}:`, error);
+
+      // Si el error es de cuota, esperamos bastante más
+      if (isQuotaError(error)) {
+        console.warn(`Cuota excedida (Intento ${attempt}). Esperando enfriamiento...`);
         if (attempt < MAX_RETRIES) {
-           await delay(attempt * 2000); // Esperar 2s, 4s, 6s...
-           continue; // Ir al siguiente intento
+           // Backoff agresivo: 5s, 10s, 15s
+           await delay(attempt * 5000); 
+           continue; 
         }
       }
       
-      // Si es otro error o se acabaron los intentos, rompemos el bucle
+      // Si no es error de cuota o se acabaron los intentos
       break;
     }
   }
 
   // Si llegamos aquí, es que fallaron todos los intentos
-  console.error("Error processing report with Gemini after retries:", lastError);
+  console.error("Error final después de reintentos:", lastError);
     
-  // Manejo de errores específicos para dar feedback útil al usuario
-  if (lastError.message?.includes("API key") || lastError.status === 403) {
-    throw new Error("⚠️ API Key inválida o no autorizada. Verifica tu configuración en Vercel (Environment Variables).");
-  }
-  if (lastError.status === 404) {
-    throw new Error("⚠️ El modelo 'gemini-2.5-flash' no está disponible para tu API Key. Verifica si tienes acceso o cambia a un modelo estable.");
-  }
-  if (lastError.status === 429) {
+  if (isQuotaError(lastError)) {
     throw new Error("⏳ Cuota excedida. El sistema está muy ocupado, intenta subir menos archivos a la vez.");
   }
-  if (lastError.status === 503) {
-    throw new Error("📡 Servicio de Google temporalmente no disponible. Intenta más tarde.");
+  if (lastError.message?.includes("API key") || lastError.status === 403) {
+    throw new Error("⚠️ API Key inválida o no autorizada. Verifica tu configuración en Vercel.");
+  }
+  if (lastError.status === 404) {
+    throw new Error("⚠️ Modelo no disponible. Verifica tu API Key.");
   }
   if (lastError.message?.includes("fetch failed") || lastError.message?.includes("NetworkError")) {
-      throw new Error("🌐 Error de red. Verifica tu conexión a internet o firewall corporativo.");
+      throw new Error("🌐 Error de red. Verifica tu conexión.");
   }
 
-  // Si es un error genérico, pasar el mensaje original
   throw new Error(lastError.message || "Error inesperado al procesar el reporte.");
 }
