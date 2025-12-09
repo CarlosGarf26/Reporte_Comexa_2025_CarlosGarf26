@@ -205,9 +205,10 @@ export async function processReportImage(base64Data: string, mimeType: string, r
 
       // Si es un error transitorio (tiempo, red, cuota), esperamos antes de reintentar
       if (isTransientError(error)) {
-        console.log("Detectado error de tiempo/red/cuota. Esperando 10 segundos para enfriar...");
+        const waitTime = i === 0 ? 5000 : 10000;
+        console.log(`Detectado error temporal (429/503). Esperando ${waitTime/1000}s para enfriar cuota...`);
         // Espera larga para dar tiempo a que se recupere la cuota o el servidor
-        await delay(10000); 
+        await delay(waitTime); 
       } else {
         // Si es otro error (ej. imagen inválida), esperamos menos
         await delay(2000);
@@ -233,7 +234,7 @@ export async function processReportImage(base64Data: string, mimeType: string, r
   } 
   else if (msg.includes("quota") || msg.includes("429") || msg.includes("exhausted") || status === 429) {
     title = "🛑 LÍMITE DE CUOTA EXCEDIDO (429)";
-    description = "Se ha alcanzado el límite de uso gratuito de la API de Google.";
+    description = "Se ha alcanzado el límite de uso. IMPORTANTE: Si acabas de cambiar la API Key en Vercel, debes hacer REDEPLOY para que surta efecto.";
   } 
   else if (msg.includes("overloaded") || status === 503) {
     title = "🔥 SERVIDOR SOBRECARGADO (503)";
@@ -245,7 +246,7 @@ export async function processReportImage(base64Data: string, mimeType: string, r
   }
   else if (msg.includes("api key") || status === 403) {
     title = "🔑 API KEY INVÁLIDA (403)";
-    description = "La llave de acceso (API Key) es incorrecta, no tiene permisos o el proyecto de facturación no está vinculado.";
+    description = "La llave de acceso (API Key) es incorrecta. Si la cambiaste en Vercel, haz REDEPLOY.";
   } 
   else if (msg.includes("fetch") || msg.includes("network")) {
     title = "🌐 ERROR DE CONEXIÓN";
