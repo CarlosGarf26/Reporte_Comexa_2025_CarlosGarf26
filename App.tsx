@@ -1,4 +1,4 @@
-import React, { useState, useEffect, ErrorInfo, ReactNode, Component } from 'react';
+import React, { useState, useEffect, ErrorInfo, ReactNode } from 'react';
 import { FileUpload } from './components/FileUpload';
 import { ResultsTable } from './components/ResultsTable';
 import { MobileReportCard } from './components/MobileReportCard';
@@ -18,7 +18,7 @@ interface ErrorBoundaryState {
 }
 
 // Error Boundary Component
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
@@ -169,6 +169,7 @@ const AppContent: React.FC = () => {
   const [viewingReport, setViewingReport] = useState<ProcessedReport | null>(null);
   const [viewMode, setViewMode] = useState<'table' | 'document'>('table');
   const [activeReportId, setActiveReportId] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState("Procesando...");
 
   // Set initial active report if none selected
   useEffect(() => {
@@ -185,6 +186,7 @@ const AppContent: React.FC = () => {
   const handleFiles = async (files: File[]) => {
     setIsProcessing(true);
     setProcessingCount(0);
+    setStatusMessage("Iniciando carga...");
     
     // Create placeholder entries with unique IDs
     const newReports: ProcessedReport[] = files.map(f => ({
@@ -213,13 +215,17 @@ const AppContent: React.FC = () => {
       const file = files[i];
       const reportId = newReports[i].id;
 
-      // THROTTLE: Si no es el primer archivo, esperamos 6 segundos antes de empezar el siguiente.
-      // Esto asegura que NO superemos el límite de 15 RPM (1 cada 4s) del Free Tier.
+      // THROTTLE EXTREMO PARA MODO GRATUITO
+      // Si no es el primer archivo, esperamos 12 segundos.
+      // 60 segundos / 12 segundos = 5 reportes por minuto.
+      // El límite es 15, así que estamos MUY seguros (3 veces por debajo del límite).
       if (i > 0) {
-        await wait(6000); 
+        setStatusMessage(`Esperando turno (Plan Gratuito)... ${files.length - i} restantes`);
+        await wait(12000); 
       }
       
       try {
+        setStatusMessage(`Analizando ${file.name}...`);
         const base64 = await fileToBase64(file);
         
         // Immediately save the image/pdf so the user can view it while processing
@@ -253,6 +259,7 @@ const AppContent: React.FC = () => {
     }
 
     setIsProcessing(false);
+    setStatusMessage("Procesando...");
   };
 
   const fileToBase64 = (file: File): Promise<string> => {
@@ -523,7 +530,7 @@ const AppContent: React.FC = () => {
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
                   <div className="flex flex-col">
-                    <span className="font-bold text-sm">Procesando...</span>
+                    <span className="font-bold text-sm">{statusMessage}</span>
                     <span className="text-xs text-slate-400">{processingCount} completados de {reports.length}</span>
                   </div>
                 </div>
