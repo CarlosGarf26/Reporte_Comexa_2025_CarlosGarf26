@@ -1,4 +1,4 @@
-import React, { useState, useEffect, ErrorInfo, ReactNode } from 'react';
+import React, { useState, useEffect, ErrorInfo, ReactNode, Component } from 'react';
 import { FileUpload } from './components/FileUpload';
 import { ResultsTable } from './components/ResultsTable';
 import { MobileReportCard } from './components/MobileReportCard';
@@ -18,14 +18,8 @@ interface ErrorBoundaryState {
 }
 
 // Error Boundary Component
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-
-  // Explicitly declare state to satisfy TypeScript in strict mode
-  public state: ErrorBoundaryState;
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  public state: ErrorBoundaryState = { hasError: false, error: null };
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
@@ -327,6 +321,14 @@ const AppContent: React.FC = () => {
              </div>
           </div>
           <div className="text-right hidden sm:block">
+             <a 
+               href="https://aistudio.google.com/app/plan_information" 
+               target="_blank" 
+               rel="noopener noreferrer"
+               className="text-xs text-blue-600 hover:text-blue-800 font-semibold mb-1 block underline"
+             >
+               Gestionar Plan / Cuota
+             </a>
              <p className="text-xs text-slate-500 uppercase font-medium">Sesión Actual</p>
              <p className="text-sm font-semibold text-slate-800">{new Date().toLocaleDateString()}</p>
           </div>
