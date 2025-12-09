@@ -201,9 +201,11 @@ const AppContent: React.FC = () => {
       }
     }
 
-    // Process files sequentially/parallel
-    const promises = files.map(async (file, index) => {
-      const reportId = newReports[index].id;
+    // Process files SEQUENTIALLY to avoid Rate Limits (429)
+    // Using a for loop with await ensures we process one after another
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const reportId = newReports[i].id;
       
       try {
         const base64 = await fileToBase64(file);
@@ -215,8 +217,10 @@ const AppContent: React.FC = () => {
             : r
         ));
 
+        // Call Service
         const { data, score } = await processReportImage(base64, file.type);
         
+        // Update success
         setReports(prev => prev.map(r => 
           r.id === reportId 
             ? { ...r, status: 'completed', confidenceScore: score, data: data } 
@@ -234,9 +238,8 @@ const AppContent: React.FC = () => {
       } finally {
         setProcessingCount(prev => prev + 1);
       }
-    });
+    }
 
-    await Promise.all(promises);
     setIsProcessing(false);
   };
 

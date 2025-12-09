@@ -75,6 +75,9 @@ const reportSchema = {
   required: ["inmueble", "fecha", "trabajoRealizado", "confidenceScore"]
 };
 
+// Función auxiliar para esperar
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 export async function processReportImage(base64Data: string, mimeType: string): Promise<{ data: ReportData, score: number }> {
   // 1. Validación estricta de API Key antes de intentar nada
   if (!process.env.API_KEY || process.env.API_KEY.includes("API_KEY")) {
@@ -82,86 +85,106 @@ export async function processReportImage(base64Data: string, mimeType: string): 
     throw new Error("⚠️ API Key no configurada correctamente. Asegúrate de haber agregado la variable 'API_KEY' en el panel de Vercel y REDESPLEGADO el proyecto.");
   }
 
-  try {
-    const cleanBase64 = base64Data.split(',')[1] || base64Data;
+  const cleanBase64 = base64Data.split(',')[1] || base64Data;
+  const MAX_RETRIES = 3;
+  let lastError: any;
 
-    console.log("Iniciando petición a Gemini con modelo gemini-2.5-flash...");
+  console.log("Iniciando petición a Gemini con modelo gemini-2.5-flash...");
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: {
-        parts: [
-          {
-            inlineData: {
-              mimeType: mimeType,
-              data: cleanBase64
-            }
-          },
-          {
-            text: "Extrae todos los datos del reporte de servicio técnico MR-14 adjunto. Sé literal."
-          }
-        ]
-      },
-      config: {
-        systemInstruction: SYSTEM_INSTRUCTION,
-        responseMimeType: "application/json",
-        responseSchema: reportSchema,
-        temperature: 0.1,
-        safetySettings: [
-          { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-          { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-          { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-          { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-        ],
-      }
-    });
-
-    const resultText = response.text;
-    if (!resultText) {
-      console.warn("Respuesta vacía de Gemini:", response);
-      throw new Error("La IA no devolvió texto. Posible bloqueo de seguridad o imagen ilegible.");
-    }
-
-    // Limpieza robusta del JSON (eliminar bloques markdown ```json ... ``` si existen)
-    const cleanJson = resultText.replace(/```json/g, '').replace(/```/g, '').trim();
-
-    let parsed;
+  // Bucle de reintentos
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
-      parsed = JSON.parse(cleanJson);
-    } catch (e) {
-      console.error("Error de formato JSON:", cleanJson);
-      throw new Error("La respuesta de la IA no tiene un formato válido. Intenta con una imagen más clara.");
-    }
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: {
+          parts: [
+            {
+              inlineData: {
+                mimeType: mimeType,
+                data: cleanBase64
+              }
+            },
+            {
+              text: "Extrae todos los datos del reporte de servicio técnico MR-14 adjunto. Sé literal."
+            }
+          ]
+        },
+        config: {
+          systemInstruction: SYSTEM_INSTRUCTION,
+          responseMimeType: "application/json",
+          responseSchema: reportSchema,
+          temperature: 0.1,
+          safetySettings: [
+            { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+          ],
+        }
+      });
 
-    const score = parsed.confidenceScore || 5;
-    const { confidenceScore, ...dataOnly } = parsed;
+      const resultText = response.text;
+      if (!resultText) {
+        console.warn("Respuesta vacía de Gemini:", response);
+        throw new Error("La IA no devolvió texto. Posible bloqueo de seguridad o imagen ilegible.");
+      }
 
-    return {
-      data: dataOnly as ReportData,
-      score: score
-    };
+      // Limpieza robusta del JSON (eliminar bloques markdown ```json ... ``` si existen)
+      const cleanJson = resultText.replace(/```json/g, '').replace(/```/g, '').trim();
 
-  } catch (error: any) {
-    console.error("Error processing report with Gemini:", error);
-    
-    // Manejo de errores específicos para dar feedback útil al usuario
-    if (error.message?.includes("API key") || error.status === 403) {
-      throw new Error("⚠️ API Key inválida o no autorizada. Verifica tu configuración en Vercel (Environment Variables).");
-    }
-    if (error.status === 404) {
-      throw new Error("⚠️ El modelo 'gemini-2.5-flash' no está disponible para tu API Key. Verifica si tienes acceso o cambia a un modelo estable.");
-    }
-    if (error.status === 429) {
-      throw new Error("⏳ Cuota excedida. Por favor espera un momento e intenta de nuevo.");
-    }
-    if (error.status === 503) {
-      throw new Error("📡 Servicio de Google temporalmente no disponible. Intenta más tarde.");
-    }
-    if (error.message?.includes("fetch failed") || error.message?.includes("NetworkError")) {
-        throw new Error("🌐 Error de red. Verifica tu conexión a internet o firewall corporativo.");
-    }
+      let parsed;
+      try {
+        parsed = JSON.parse(cleanJson);
+      } catch (e) {
+        console.error("Error de formato JSON:", cleanJson);
+        throw new Error("La respuesta de la IA no tiene un formato válido. Intenta con una imagen más clara.");
+      }
 
-    // Si es un error genérico, pasar el mensaje original
-    throw new Error(error.message || "Error inesperado al procesar el reporte.");
+      const score = parsed.confidenceScore || 5;
+      const { confidenceScore, ...dataOnly } = parsed;
+
+      return {
+        data: dataOnly as ReportData,
+        score: score
+      };
+
+    } catch (error: any) {
+      lastError = error;
+      
+      // Si el error es 429 (Too Many Requests) o 503 (Server Error), esperamos y reintentamos
+      if (error.status === 429 || error.status === 503) {
+        console.warn(`Intento ${attempt} fallido (${error.status}). Reintentando en ${attempt * 2}s...`);
+        if (attempt < MAX_RETRIES) {
+           await delay(attempt * 2000); // Esperar 2s, 4s, 6s...
+           continue; // Ir al siguiente intento
+        }
+      }
+      
+      // Si es otro error o se acabaron los intentos, rompemos el bucle
+      break;
+    }
   }
+
+  // Si llegamos aquí, es que fallaron todos los intentos
+  console.error("Error processing report with Gemini after retries:", lastError);
+    
+  // Manejo de errores específicos para dar feedback útil al usuario
+  if (lastError.message?.includes("API key") || lastError.status === 403) {
+    throw new Error("⚠️ API Key inválida o no autorizada. Verifica tu configuración en Vercel (Environment Variables).");
+  }
+  if (lastError.status === 404) {
+    throw new Error("⚠️ El modelo 'gemini-2.5-flash' no está disponible para tu API Key. Verifica si tienes acceso o cambia a un modelo estable.");
+  }
+  if (lastError.status === 429) {
+    throw new Error("⏳ Cuota excedida. El sistema está muy ocupado, intenta subir menos archivos a la vez.");
+  }
+  if (lastError.status === 503) {
+    throw new Error("📡 Servicio de Google temporalmente no disponible. Intenta más tarde.");
+  }
+  if (lastError.message?.includes("fetch failed") || lastError.message?.includes("NetworkError")) {
+      throw new Error("🌐 Error de red. Verifica tu conexión a internet o firewall corporativo.");
+  }
+
+  // Si es un error genérico, pasar el mensaje original
+  throw new Error(lastError.message || "Error inesperado al procesar el reporte.");
 }
