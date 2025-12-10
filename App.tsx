@@ -1,4 +1,4 @@
-import React, { useState, useEffect, ErrorInfo, ReactNode, Component } from 'react';
+import React, { useState, useEffect, ErrorInfo, ReactNode } from 'react';
 import { FileUpload } from './components/FileUpload';
 import { ResultsTable } from './components/ResultsTable';
 import { MobileReportCard } from './components/MobileReportCard';
@@ -18,7 +18,7 @@ interface ErrorBoundaryState {
 }
 
 // Error Boundary Component
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public state: ErrorBoundaryState = { hasError: false, error: null };
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
@@ -138,11 +138,6 @@ const AppContent: React.FC = () => {
   // API Key Status State
   const [keyStatus, setKeyStatus] = useState<'checking' | 'ok' | 'blocked' | 'quota' | 'error'>('checking');
   const [keyMessage, setKeyMessage] = useState('');
-
-  // Identificador visual de la llave (últimos 4 dígitos)
-  const keySuffix = process.env.API_KEY && process.env.API_KEY.length > 4 
-    ? process.env.API_KEY.slice(-4) 
-    : '????';
 
   // Validar API Key SOLO localmente al iniciar para no gastar cuota ni provocar 429
   useEffect(() => {
@@ -345,19 +340,9 @@ const AppContent: React.FC = () => {
                    </span>
                  )}
                  {keyStatus === 'checking' && (
-                   <span className="text-xs text-slate-400">Verificando llave...</span>
+                   <span className="text-xs text-slate-400">Verificando sistema...</span>
                  )}
                </div>
-               
-               {/* INDICADOR DE LLAVE VISIBLE */}
-               <div className="text-[10px] text-slate-400 font-mono mb-1 bg-slate-100 px-2 rounded border border-slate-200" title="Verifica que esto coincida con tu nueva llave en Vercel">
-                  Key ID: ...{keySuffix}
-               </div>
-
-               <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:text-blue-800 font-bold mb-0.5 block underline flex items-center gap-1">
-                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3"><path fillRule="evenodd" d="M8 7a5 5 0 1 1 3.61 4.804l-1.903 1.903A1 1 0 0 1 9 14H8v1a1 1 0 0 1-1 1H6v1a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-2a1 1 0 0 1 .293-.707L8.196 8.39A5.002 5.002 0 0 1 8 7Zm5-3a.75.75 0 0 0 0 1.5A2.25 2.25 0 0 1 15.25 7.75a.75.75 0 0 0 1.5 0A3.75 3.75 0 0 0 13 4Z" clipRule="evenodd" /></svg>
-                 Conseguir API Key
-               </a>
              </div>
              <p className="text-sm font-semibold text-slate-800 mt-1">{new Date().toLocaleDateString()}</p>
           </div>
@@ -375,9 +360,16 @@ const AppContent: React.FC = () => {
               <span>{keyStatus === 'blocked' ? 'API KEY BLOQUEADA O INVÁLIDA' : 'CUOTA AGOTADA'}</span>
             </p>
             <p className={`text-sm ${keyStatus === 'blocked' ? 'text-red-600' : 'text-orange-700'}`}>{keyMessage}</p>
-            <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className={`px-3 py-1 rounded-full text-xs font-bold border transition-colors ${keyStatus === 'blocked' ? 'bg-red-100 text-red-800 border-red-300 hover:bg-red-200' : 'bg-orange-100 text-orange-800 border-orange-300 hover:bg-orange-200'}`}>
-              Solucionar en Google
-            </a>
+            
+            {keyStatus === 'quota' ? (
+                <a href="https://console.cloud.google.com/billing" target="_blank" rel="noopener noreferrer" className="px-3 py-1 rounded-full text-xs font-bold border transition-colors bg-orange-100 text-orange-800 border-orange-300 hover:bg-orange-200">
+                  Activar Plan de Pago (Billing)
+                </a>
+            ) : (
+                <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="px-3 py-1 rounded-full text-xs font-bold border transition-colors bg-red-100 text-red-800 border-red-300 hover:bg-red-200">
+                  Solucionar en Google
+                </a>
+            )}
           </div>
         </div>
       )}

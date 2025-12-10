@@ -234,7 +234,7 @@ export async function processReportImage(base64Data: string, mimeType: string, r
   } 
   else if (msg.includes("quota") || msg.includes("429") || msg.includes("exhausted") || status === 429) {
     title = "🛑 LÍMITE DE CUOTA EXCEDIDO (429)";
-    description = "Se ha alcanzado el límite de uso. IMPORTANTE: Si acabas de cambiar la API Key en Vercel, debes hacer REDEPLOY para que surta efecto.";
+    description = "Se agotó la cuota gratuita. OPCIONES: 1. Si cambiaste la llave, haz REDEPLOY. 2. Si procesas mucho volumen, considera activar 'Pay-as-you-go' en Google Cloud para eliminar límites.";
   } 
   else if (msg.includes("overloaded") || status === 503) {
     title = "🔥 SERVIDOR SOBRECARGADO (503)";
