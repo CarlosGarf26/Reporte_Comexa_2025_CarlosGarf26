@@ -49,7 +49,7 @@ export const MobileReportCard: React.FC<MobileReportCardProps> = ({ report, onUp
              <label className="text-xs text-slate-500 block">Fecha</label>
              <input 
                 type="text" 
-                value={report.data.fecha}
+                value={report.data.fecha || ''}
                 onChange={(e) => onUpdateReport(report.id, 'fecha', e.target.value)}
                 className="w-full text-sm border-b border-slate-200 focus:border-blue-500 outline-none py-1"
              />
@@ -58,7 +58,7 @@ export const MobileReportCard: React.FC<MobileReportCardProps> = ({ report, onUp
              <label className="text-xs text-slate-500 block">Folio</label>
              <input 
                 type="text" 
-                value={report.data.folio}
+                value={report.data.folio || ''}
                 onChange={(e) => onUpdateReport(report.id, 'folio', e.target.value)}
                 className="w-full text-sm border-b border-slate-200 focus:border-blue-500 outline-none py-1"
              />
@@ -68,7 +68,7 @@ export const MobileReportCard: React.FC<MobileReportCardProps> = ({ report, onUp
         <div>
            <label className="text-xs text-slate-500 block">Trabajo Realizado</label>
            <textarea 
-              value={report.data.trabajoRealizado}
+              value={report.data.trabajoRealizado || ''}
               onChange={(e) => onUpdateReport(report.id, 'trabajoRealizado', e.target.value)}
               className="w-full text-sm border border-slate-200 rounded p-2 mt-1 focus:border-blue-500 outline-none"
               rows={3}
@@ -80,7 +80,7 @@ export const MobileReportCard: React.FC<MobileReportCardProps> = ({ report, onUp
              <div>
                 <label className="text-xs text-slate-500 block">Falla Reportada</label>
                 <textarea 
-                  value={report.data.fallaReportada}
+                  value={report.data.fallaReportada || ''}
                   onChange={(e) => onUpdateReport(report.id, 'fallaReportada', e.target.value)}
                   className="w-full text-sm border border-slate-200 rounded p-2 mt-1 focus:border-blue-500 outline-none"
                   rows={2}
@@ -89,7 +89,7 @@ export const MobileReportCard: React.FC<MobileReportCardProps> = ({ report, onUp
              <div>
                 <label className="text-xs text-slate-500 block">Condiciones Encontradas</label>
                 <textarea 
-                  value={report.data.condicionesEncontradas}
+                  value={report.data.condicionesEncontradas || ''}
                   onChange={(e) => onUpdateReport(report.id, 'condicionesEncontradas', e.target.value)}
                   className="w-full text-sm border border-slate-200 rounded p-2 mt-1 focus:border-blue-500 outline-none"
                   rows={2}
@@ -99,7 +99,7 @@ export const MobileReportCard: React.FC<MobileReportCardProps> = ({ report, onUp
                 <label className="text-xs text-slate-500 block">Materiales</label>
                 <input 
                   type="text" 
-                  value={report.data.materiales}
+                  value={report.data.materiales || ''}
                   onChange={(e) => onUpdateReport(report.id, 'materiales', e.target.value)}
                   className="w-full text-sm border-b border-slate-200 focus:border-blue-500 outline-none py-1"
                 />
@@ -108,7 +108,7 @@ export const MobileReportCard: React.FC<MobileReportCardProps> = ({ report, onUp
                 <label className="text-xs text-slate-500 block">Equipo Instalado</label>
                 <input 
                   type="text" 
-                  value={report.data.equipoInstalado}
+                  value={report.data.equipoInstalado || ''}
                   onChange={(e) => onUpdateReport(report.id, 'equipoInstalado', e.target.value)}
                   className="w-full text-sm border-b border-slate-200 focus:border-blue-500 outline-none py-1"
                 />
@@ -117,7 +117,7 @@ export const MobileReportCard: React.FC<MobileReportCardProps> = ({ report, onUp
                 <label className="text-xs text-slate-500 block">Equipo Retirado</label>
                 <input 
                   type="text" 
-                  value={report.data.equipoRetirado}
+                  value={report.data.equipoRetirado || ''}
                   onChange={(e) => onUpdateReport(report.id, 'equipoRetirado', e.target.value)}
                   className="w-full text-sm border-b border-slate-200 focus:border-blue-500 outline-none py-1"
                 />
@@ -125,7 +125,7 @@ export const MobileReportCard: React.FC<MobileReportCardProps> = ({ report, onUp
              <div>
                 <label className="text-xs text-slate-500 block">Observaciones</label>
                 <textarea 
-                  value={report.data.observaciones}
+                  value={report.data.observaciones || ''}
                   onChange={(e) => onUpdateReport(report.id, 'observaciones', e.target.value)}
                   className="w-full text-sm border border-slate-200 rounded p-2 mt-1 focus:border-blue-500 outline-none"
                   rows={2}
@@ -135,7 +135,7 @@ export const MobileReportCard: React.FC<MobileReportCardProps> = ({ report, onUp
                 <label className="text-xs text-slate-500 block">Técnicos</label>
                 <input 
                   type="text" 
-                  value={report.data.tecnicos}
+                  value={report.data.tecnicos || ''}
                   onChange={(e) => onUpdateReport(report.id, 'tecnicos', e.target.value)}
                   className="w-full text-sm border-b border-slate-200 focus:border-blue-500 outline-none py-1"
                 />
@@ -145,7 +145,7 @@ export const MobileReportCard: React.FC<MobileReportCardProps> = ({ report, onUp
                    <label className="text-xs text-slate-500 block">Hr Entrada</label>
                    <input 
                       type="text" 
-                      value={report.data.horaEntrada}
+                      value={report.data.horaEntrada || ''}
                       onChange={(e) => onUpdateReport(report.id, 'horaEntrada', e.target.value)}
                       className="w-full text-sm border-b border-slate-200 focus:border-blue-500 outline-none py-1"
                    />
@@ -154,7 +154,7 @@ export const MobileReportCard: React.FC<MobileReportCardProps> = ({ report, onUp
                    <label className="text-xs text-slate-500 block">Hr Salida</label>
                    <input 
                       type="text" 
-                      value={report.data.horaSalida}
+                      value={report.data.horaSalida || ''}
                       onChange={(e) => onUpdateReport(report.id, 'horaSalida', e.target.value)}
                       className="w-full text-sm border-b border-slate-200 focus:border-blue-500 outline-none py-1"
                    />

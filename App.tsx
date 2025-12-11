@@ -1,4 +1,4 @@
-import React, { useState, useEffect, ErrorInfo, ReactNode } from 'react';
+import React, { useState, useEffect, ErrorInfo, ReactNode, Component } from 'react';
 import { FileUpload } from './components/FileUpload';
 import { ResultsTable } from './components/ResultsTable';
 import { MobileReportCard } from './components/MobileReportCard';
@@ -18,7 +18,7 @@ interface ErrorBoundaryState {
 }
 
 // Error Boundary Component
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
@@ -547,13 +547,3 @@ const AppContent: React.FC = () => {
     </div>
   );
 };
-
-const App: React.FC = () => {
-  return (
-    <ErrorBoundary>
-      <AppContent />
-    </ErrorBoundary>
-  );
-};
-
-export default App;

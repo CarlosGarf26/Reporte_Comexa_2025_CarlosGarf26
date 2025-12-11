@@ -53,7 +53,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ reports, onUpdateRep
                 <td className="p-2 align-top">
                   <input 
                     type="text" 
-                    value={report.data.inmueble}
+                    value={report.data.inmueble || ''}
                     onChange={(e) => onUpdateReport(report.id, 'inmueble', e.target.value)}
                     className="w-full bg-transparent border-transparent focus:border-blue-500 focus:ring-0 rounded px-2 py-1 hover:bg-white border hover:border-slate-200 transition-colors font-medium"
                     placeholder="Inmueble"
@@ -61,13 +61,13 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ reports, onUpdateRep
                   <input 
                      type="text"
                      placeholder="SIRH"
-                     value={report.data.sirh}
+                     value={report.data.sirh || ''}
                      onChange={(e) => onUpdateReport(report.id, 'sirh', e.target.value)}
                      className="w-full text-xs text-slate-400 bg-transparent border-transparent focus:border-blue-500 focus:ring-0 rounded px-2 py-0 mt-1 hover:bg-white border hover:border-slate-200"
                   />
                   <input 
                     type="text" 
-                    value={report.data.tecnicos}
+                    value={report.data.tecnicos || ''}
                     onChange={(e) => onUpdateReport(report.id, 'tecnicos', e.target.value)}
                     className="w-full text-xs text-slate-500 bg-transparent border-transparent focus:border-blue-500 focus:ring-0 rounded px-2 py-0 mt-1 hover:bg-white border hover:border-slate-200"
                     placeholder="Técnicos"
@@ -78,13 +78,13 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ reports, onUpdateRep
                 <td className="p-2 align-top">
                    <input 
                     type="text" 
-                    value={report.data.fecha}
+                    value={report.data.fecha || ''}
                     onChange={(e) => onUpdateReport(report.id, 'fecha', e.target.value)}
                     className="w-full bg-transparent border-transparent focus:border-blue-500 focus:ring-0 rounded px-2 py-1 hover:bg-white border hover:border-slate-200"
                   />
                   <input 
                     type="text" 
-                    value={report.data.folio}
+                    value={report.data.folio || ''}
                     onChange={(e) => onUpdateReport(report.id, 'folio', e.target.value)}
                     className="w-full bg-transparent border-transparent focus:border-blue-500 focus:ring-0 rounded px-2 py-1 mt-1 hover:bg-white border hover:border-slate-200 font-mono text-xs"
                     placeholder="Folio"
@@ -95,7 +95,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ reports, onUpdateRep
                 <td className="p-2 align-top">
                   <input 
                     type="text"
-                    value={report.data.tipoMantenimiento}
+                    value={report.data.tipoMantenimiento || ''}
                     onChange={(e) => onUpdateReport(report.id, 'tipoMantenimiento', e.target.value)}
                     className="w-full bg-transparent border-transparent focus:border-blue-500 focus:ring-0 rounded px-2 py-1 hover:bg-white border hover:border-slate-200 text-xs"
                     placeholder="Tipo..."
@@ -105,7 +105,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ reports, onUpdateRep
                 {/* Falla Reportada */}
                 <td className="p-2 align-top">
                    <textarea 
-                    value={report.data.fallaReportada}
+                    value={report.data.fallaReportada || ''}
                     onChange={(e) => onUpdateReport(report.id, 'fallaReportada', e.target.value)}
                     rows={3}
                     className="w-full bg-transparent border-transparent focus:border-blue-500 focus:ring-0 rounded px-2 py-1 hover:bg-white border hover:border-slate-200 resize-none text-xs leading-tight"
@@ -116,7 +116,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ reports, onUpdateRep
                 {/* Condiciones */}
                 <td className="p-2 align-top">
                    <textarea 
-                    value={report.data.condicionesEncontradas}
+                    value={report.data.condicionesEncontradas || ''}
                     onChange={(e) => onUpdateReport(report.id, 'condicionesEncontradas', e.target.value)}
                     rows={3}
                     className="w-full bg-transparent border-transparent focus:border-blue-500 focus:ring-0 rounded px-2 py-1 hover:bg-white border hover:border-slate-200 resize-none text-xs leading-tight"
@@ -127,7 +127,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ reports, onUpdateRep
                 {/* Trabajo Realizado */}
                 <td className="p-2 align-top">
                    <textarea 
-                    value={report.data.trabajoRealizado}
+                    value={report.data.trabajoRealizado || ''}
                     onChange={(e) => onUpdateReport(report.id, 'trabajoRealizado', e.target.value)}
                     rows={4}
                     className="w-full bg-transparent border-transparent focus:border-blue-500 focus:ring-0 rounded px-2 py-1 hover:bg-white border hover:border-slate-200 resize-none text-xs leading-tight"
@@ -137,7 +137,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ reports, onUpdateRep
                 {/* Materiales & Equipos */}
                 <td className="p-2 align-top">
                    <textarea 
-                    value={report.data.materiales}
+                    value={report.data.materiales || ''}
                     onChange={(e) => onUpdateReport(report.id, 'materiales', e.target.value)}
                     rows={2}
                     className="w-full bg-transparent border-transparent focus:border-blue-500 focus:ring-0 rounded px-2 py-1 hover:bg-white border hover:border-slate-200 resize-none text-xs mb-1"
@@ -145,14 +145,14 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ reports, onUpdateRep
                   />
                   <input 
                     type="text"
-                    value={report.data.equipoInstalado}
+                    value={report.data.equipoInstalado || ''}
                     onChange={(e) => onUpdateReport(report.id, 'equipoInstalado', e.target.value)}
                     className="w-full text-xs text-green-600 bg-transparent border-transparent focus:border-blue-500 focus:ring-0 rounded px-2 py-0 hover:bg-white border hover:border-slate-200 placeholder-green-600/50"
                     placeholder="Eq. Instalado"
                   />
                   <input 
                     type="text"
-                    value={report.data.equipoRetirado}
+                    value={report.data.equipoRetirado || ''}
                     onChange={(e) => onUpdateReport(report.id, 'equipoRetirado', e.target.value)}
                     className="w-full text-xs text-red-600 bg-transparent border-transparent focus:border-blue-500 focus:ring-0 rounded px-2 py-0 mt-1 hover:bg-white border hover:border-slate-200 placeholder-red-600/50"
                     placeholder="Eq. Retirado"
@@ -162,7 +162,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ reports, onUpdateRep
                  {/* Observaciones */}
                  <td className="p-2 align-top">
                    <textarea 
-                    value={report.data.observaciones}
+                    value={report.data.observaciones || ''}
                     onChange={(e) => onUpdateReport(report.id, 'observaciones', e.target.value)}
                     rows={3}
                     className="w-full bg-transparent border-transparent focus:border-blue-500 focus:ring-0 rounded px-2 py-1 hover:bg-white border hover:border-slate-200 resize-none text-xs leading-tight"
@@ -174,14 +174,14 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ reports, onUpdateRep
                 <td className="p-2 align-top">
                    <input 
                     type="text" 
-                    value={report.data.horaEntrada}
+                    value={report.data.horaEntrada || ''}
                     onChange={(e) => onUpdateReport(report.id, 'horaEntrada', e.target.value)}
                     className="w-full bg-transparent border-transparent focus:border-blue-500 focus:ring-0 rounded px-2 py-1 hover:bg-white border hover:border-slate-200 text-center text-xs"
                     placeholder="Entrada"
                   />
                   <input 
                     type="text" 
-                    value={report.data.horaSalida}
+                    value={report.data.horaSalida || ''}
                     onChange={(e) => onUpdateReport(report.id, 'horaSalida', e.target.value)}
                     className="w-full bg-transparent border-transparent focus:border-blue-500 focus:ring-0 rounded px-2 py-1 mt-1 hover:bg-white border hover:border-slate-200 text-center text-xs"
                     placeholder="Salida"

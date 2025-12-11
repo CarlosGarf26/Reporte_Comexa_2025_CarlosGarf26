@@ -58,7 +58,7 @@ const reportSchema = {
     evaluacion: { type: Type.STRING, description: "Datos de evaluación" },
     horaEntrada: { type: Type.STRING, description: "Hora de entrada" },
     horaSalida: { type: Type.STRING, description: "Hora de salida" },
-    confidenceScore: { type: Type.INTEGER, description: "Puntaje de legibilidad 1-10" }
+    confidenceScore: { type: Type.NUMBER, description: "Puntaje de legibilidad 1-10" }
   },
   required: ["inmueble", "fecha", "trabajoRealizado", "confidenceScore"]
 };
@@ -79,31 +79,34 @@ const isTransientError = (error: any) => {
     msg.includes('quota') || 
     msg.includes('exhausted') || 
     msg.includes('too many') || 
-    msg.includes('time') ||     // Catch "Timed out" or "Time limit"
-    msg.includes('overloaded') || // Catch "Model is overloaded"
+    msg.includes('time') ||     
+    msg.includes('overloaded') || 
     msg.includes('fetch failed')
   );
 };
 
 // Helper para extraer JSON sucio
 const extractJSON = (text: string): string => {
+  // Eliminar bloques de código markdown si existen
   let clean = text.replace(/```json/g, '').replace(/```/g, '').trim();
+  
+  // Buscar el primer '{' y el último '}' para asegurar que es un objeto válido
   const firstBrace = clean.indexOf('{');
   const lastBrace = clean.lastIndexOf('}');
+  
   if (firstBrace >= 0 && lastBrace > firstBrace) {
     return clean.substring(firstBrace, lastBrace + 1);
   }
   return clean;
 };
 
-// --- NUEVA FUNCIÓN DE DIAGNÓSTICO ---
+// --- FUNCIÓN DE DIAGNÓSTICO ---
 export async function validateApiKey(): Promise<{ status: 'ok' | 'blocked' | 'quota' | 'error', message: string }> {
   if (!process.env.API_KEY || process.env.API_KEY.length < 10) {
     return { status: 'blocked', message: 'No se detectó ninguna API Key configurada.' };
   }
 
   try {
-    // Hacemos una petición mínima para probar la llave (1 token)
     await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: { parts: [{ text: 'ping' }] },
@@ -113,11 +116,9 @@ export async function validateApiKey(): Promise<{ status: 'ok' | 'blocked' | 'qu
     const msg = (error.message || '').toLowerCase();
     const status = error.status || error.response?.status;
 
-    // Detección específica de API deshabilitada
     if (msg.includes('disabled') || msg.includes('enable') || msg.includes('not been used')) {
       return { status: 'blocked', message: 'La API "Google Generative AI" no está habilitada en tu Google Cloud Console.' };
     }
-
     if (msg.includes('key') || status === 400 || status === 403) {
       return { status: 'blocked', message: 'La API Key es inválida, ha sido revocada o el proyecto de Google Cloud está cerrado.' };
     }
@@ -133,23 +134,18 @@ export async function validateApiKey(): Promise<{ status: 'ok' | 'blocked' | 'qu
 }
 
 export async function processReportImage(base64Data: string, mimeType: string, requestedModel: string = 'gemini-2.5-flash'): Promise<{ data: ReportData, score: number }> {
-  // 1. Validación estricta de API Key
   if (!process.env.API_KEY || process.env.API_KEY.includes("API_KEY") || process.env.API_KEY.length < 5) {
     throw new Error("⚠️ Falta API Key. Configúrala en tu entorno.");
   }
 
   const cleanBase64 = base64Data.split(',')[1] || base64Data;
   
-  // ESTRATEGIA DE FALLBACK AGRESIVA:
-  // Si falla el primer intento, cambiamos INMEDIATAMENTE a Flash (el más rápido y estable).
-  // Solo intentamos Pro una vez si se solicitó explícitamente.
   let modelsToTry = [requestedModel];
-  
   if (requestedModel !== 'gemini-2.5-flash') {
-    modelsToTry.push('gemini-2.5-flash'); // Primer fallback
-    modelsToTry.push('gemini-2.5-flash'); // Segundo fallback (reintento)
+    modelsToTry.push('gemini-2.5-flash'); 
+    modelsToTry.push('gemini-2.5-flash');
   } else {
-    modelsToTry.push('gemini-2.5-flash'); // Reintento simple
+    modelsToTry.push('gemini-2.5-flash');
   }
 
   let lastError: any;
@@ -181,8 +177,20 @@ export async function processReportImage(base64Data: string, mimeType: string, r
         }
       });
 
+      // Validación de Seguridad Estricta
+      const candidate = response.candidates?.[0];
+      if (candidate?.finishReason !== "STOP" && candidate?.finishReason !== undefined) {
+         // Si se detuvo por SAFETY u otra razón, lanzamos error específico
+         if (candidate?.finishReason === "SAFETY") {
+             throw new Error("El modelo bloqueó la imagen por filtros de seguridad (Safety Filter).");
+         }
+         if (candidate?.finishReason === "RECITATION") {
+             throw new Error("El modelo detectó contenido con copyright (Recitation).");
+         }
+      }
+
       const resultText = response.text;
-      if (!resultText) throw new Error("Respuesta vacía del servidor.");
+      if (!resultText) throw new Error("Respuesta vacía del servidor (Posible bloqueo de seguridad o error de red).");
 
       const jsonStr = extractJSON(resultText);
       let parsed: any;
@@ -203,61 +211,39 @@ export async function processReportImage(base64Data: string, mimeType: string, r
       console.warn(`Fallo con modelo ${modelName}:`, error);
       lastError = error;
 
-      // Si es un error transitorio (tiempo, red, cuota), esperamos antes de reintentar
       if (isTransientError(error)) {
         const waitTime = i === 0 ? 5000 : 10000;
-        console.log(`Detectado error temporal (429/503). Esperando ${waitTime/1000}s para enfriar cuota...`);
-        // Espera larga para dar tiempo a que se recupere la cuota o el servidor
+        console.log(`Detectado error temporal (429/503). Esperando ${waitTime/1000}s...`);
         await delay(waitTime); 
       } else {
-        // Si es otro error (ej. imagen inválida), esperamos menos
         await delay(2000);
       }
-      
-      // Continuamos al siguiente modelo en la lista...
     }
   }
 
-  // Diagnóstico final detallado para el usuario
   const msg = (lastError.message || '').toLowerCase();
   const status = lastError.status || lastError.response?.status || lastError.statusCode;
   
   let title = "Error de Procesamiento";
-  let description = "Ocurrió un error desconocido. Verifica tu imagen y conexión.";
+  let description = "Ocurrió un error desconocido. Verifica tu imagen.";
 
-  // Clasificación de errores más específica
   if (msg.includes("time") || msg.includes("timeout") || status === 504) {
-    title = "⏳ TIEMPO DE ESPERA AGOTADO (TIMEOUT)";
-    if (msg.includes("gateway")) description = "El servidor tardó demasiado en responder (504 Gateway Timeout).";
-    else if (msg.includes("fetch")) description = "Tu conexión a internet se interrumpió o es muy lenta.";
-    else description = "Google AI tardó demasiado procesando la imagen.";
+    title = "⏳ TIEMPO AGOTADO";
+    description = "El servidor tardó demasiado. Intenta con una imagen más pequeña.";
   } 
-  else if (msg.includes("quota") || msg.includes("429") || msg.includes("exhausted") || status === 429) {
-    title = "🛑 LÍMITE DE CUOTA EXCEDIDO (429)";
-    description = "Se agotó la cuota gratuita. OPCIONES: 1. Si cambiaste la llave, haz REDEPLOY. 2. Si procesas mucho volumen, considera activar 'Pay-as-you-go' en Google Cloud para eliminar límites.";
+  else if (msg.includes("quota") || msg.includes("429") || status === 429) {
+    title = "🛑 CUOTA EXCEDIDA (429)";
+    description = "Límite de peticiones alcanzado.";
   } 
-  else if (msg.includes("overloaded") || status === 503) {
-    title = "🔥 SERVIDOR SOBRECARGADO (503)";
-    description = "El modelo de IA tiene demasiada demanda en este momento. Inténtalo de nuevo en unos minutos.";
-  } 
-  else if (msg.includes("disabled") || msg.includes("enable")) {
-    title = "⛔ API DESHABILITADA";
-    description = "Debes ir a Google Cloud Console y habilitar la 'Google Generative AI API' para tu proyecto.";
+  else if (msg.includes("safety") || msg.includes("blocked")) {
+    title = "🛡️ BLOQUEO DE SEGURIDAD";
+    description = "Google AI clasificó la imagen como insegura.";
   }
-  else if (msg.includes("api key") || status === 403) {
-    title = "🔑 API KEY INVÁLIDA (403)";
-    description = "La llave de acceso (API Key) es incorrecta. Si la cambiaste en Vercel, haz REDEPLOY.";
-  } 
-  else if (msg.includes("fetch") || msg.includes("network")) {
-    title = "🌐 ERROR DE CONEXIÓN";
-    description = "No se pudo establecer conexión con los servidores de Google. Verifica tu Wifi o Datos.";
-  } 
-  else if (msg.includes("json") || msg.includes("parse")) {
-    title = "🧩 ERROR DE LECTURA (JSON)";
-    description = "La IA no pudo estructurar los datos correctamente. Probablemente la imagen no es clara o no es un reporte válido.";
+  else if (msg.includes("json")) {
+    title = "🧩 ERROR DE LECTURA";
+    description = "La IA no pudo estructurar los datos. Imagen ilegible.";
   }
 
-  // Lanzar error con formato amigable + detalle técnico
   const technicalDetail = status ? `[Código: ${status}]` : `[${msg.slice(0, 50)}...]`;
   throw new Error(`${title}: ${description} ${technicalDetail}`);
 }
