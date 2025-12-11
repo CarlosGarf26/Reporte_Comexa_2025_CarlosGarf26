@@ -19,7 +19,10 @@ interface ErrorBoundaryState {
 
 // Error Boundary Component
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  public state: ErrorBoundaryState = { hasError: false, error: null };
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
@@ -169,7 +172,7 @@ const AppContent: React.FC = () => {
      ));
      
      setIsProcessing(true);
-     setStatusMessage("Reintentando con Flash (más rápido)...");
+     setStatusMessage("Reintentando con Flash...");
      
      try {
         const mimeType = report.originalImage.startsWith('data:application/pdf') ? 'application/pdf' : 'image/jpeg';
@@ -230,7 +233,7 @@ const AppContent: React.FC = () => {
 
         if (selectedModel === 'manual') {
           setStatusMessage(`Preparando ficha manual para ${file.name}...`);
-          await wait(500); 
+          await wait(200); 
           setReports(prev => prev.map(r => 
             r.id === reportId 
               ? { ...r, status: 'completed', confidenceScore: 0, data: { ...INITIAL_REPORT_DATA } } 
@@ -239,10 +242,16 @@ const AppContent: React.FC = () => {
           continue; 
         }
 
-        // Mayor tiempo de espera entre archivos para evitar error 429
-        const waitTime = selectedModel.includes('pro') ? 15000 : 3000;
+        // Tiempos optimizados para cuenta de pago (Pay-as-you-go)
+        // Flash permite 1000 RPM, Pro es un poco más lento pero permite mucho más que la versión free.
+        // Reducimos drásticamente los tiempos de espera.
+        const waitTime = selectedModel.includes('pro') ? 1000 : 200; 
+        
         if (i > 0) {
-          setStatusMessage(`Pausando ${waitTime/1000}s para evitar saturación... (${files.length - i} restantes)`);
+          // Solo mostramos mensaje si la espera es perceptible
+          if (waitTime > 500) {
+             setStatusMessage(`Preparando siguiente... (${files.length - i} restantes)`);
+          }
           await wait(waitTime); 
         }
 
