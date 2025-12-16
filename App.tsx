@@ -538,9 +538,9 @@ const AppContent: React.FC = () => {
           <div className="flex flex-col items-center justify-center gap-2">
             <div className="flex items-center gap-1 text-slate-400 text-sm">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 0 1-1.043 3.296 3.745 3.745 0 0 1-3.296 1.043A3.745 3.745 0 0 1 12 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 0 1-3.296-1.043 3.745 3.745 0 0 1 1.043-3.296A3.745 3.745 0 0 1 3 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 0 1 1.043-3.296 3.746 3.746 0 0 1 3.296-1.043A3.746 3.746 0 0 1 12 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 0 1 3.296 1.043 3.745 3.745 0 0 1 1.593-3.068C20.37 9.63 21.232 10.732 21 12Z" /></svg>
-              <span>Desarrollado por Juan Carlos Garfias </span>
+              <span>Desarrollado por Juan Carlos Garfias con Gemini 2.5 AI</span>
             </div>
-            <p className="text-xs text-slate-300">© {new Date().getFullYear()} .Uso interno exclusivo COMEXA.</p>
+            <p className="text-xs text-slate-300">© {new Date().getFullYear()} COMEXA. Uso interno exclusivo.</p>
           </div>
         </div>
       </footer>
